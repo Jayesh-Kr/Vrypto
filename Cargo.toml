@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "backend/auth_canister",
+    "backend/asset_canister",
+    "backend/marketplace_canister",
+]
+
+[workspace.dependencies]
+candid = "0.10"
+ic-cdk = "0.13"
+ic-cdk-timers = "0.7"
+ic-stable-structures = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

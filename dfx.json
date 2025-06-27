@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "canisters": {
+    "auth_canister": {
+      "type": "rust",
+      "package": "auth_canister",
+      "candid": "backend/auth_canister/auth_canister.did"
+    },
+    "asset_canister": {
+      "type": "rust",
+      "package": "asset_canister",
+      "candid": "backend/asset_canister/asset_canister.did"
+    },
+    "marketplace_canister": {
+      "type": "rust",
+      "package": "marketplace_canister",
+      "candid": "backend/marketplace_canister/marketplace_canister.did"
+    },
+    "frontend": {
+      "type": "assets",
+      "source": ["frontend/dist"]
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    },
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  }
+}
