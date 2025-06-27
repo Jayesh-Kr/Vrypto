@@ -3,10 +3,14 @@ import { Principal } from '@dfinity/principal'
 
 // Canister IDs - These would be set after deployment
 const CANISTER_IDS = {
-  auth: process.env.REACT_APP_AUTH_CANISTER_ID || 'rrkah-fqaaa-aaaah-qcwka-cai',
-  asset: process.env.REACT_APP_ASSET_CANISTER_ID || 'rdmx6-jaaaa-aaaah-qcwkq-cai',
-  marketplace: process.env.REACT_APP_MARKETPLACE_CANISTER_ID || 'ryjl3-tyaaa-aaaah-qcwkw-cai',
+  auth: import.meta.env.REACT_APP_AUTH_CANISTER_ID,
+  asset: import.meta.env.REACT_APP_ASSET_CANISTER_ID,
+  marketplace: import.meta.env.REACT_APP_MARKETPLACE_CANISTER_ID
 }
+
+console.log("Auth canister id = " + import.meta.env.REACT_APP_AUTH_CANISTER_ID);
+console.log("Asset canister id = " + import.meta.env.REACT_APP_ASSET_CANISTER_ID);
+console.log("MarketPlace canister id = " + import.meta.env.REACT_APP_MARKETPLACE_CANISTER_ID);
 
 // Candid interface definitions
 const authIdlFactory = ({ IDL }) => {
@@ -152,7 +156,7 @@ class CanisterService {
   }
 
   async initializeAgent(identity = null) {
-    const host = process.env.NODE_ENV === 'development' 
+    const host = import.meta.env.MODE === 'development' 
       ? 'http://localhost:8000' 
       : 'https://ic0.app'
 
@@ -162,7 +166,7 @@ class CanisterService {
     })
 
     // Fetch root key for local development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.MODE === 'development') {
       await this.agent.fetchRootKey()
     }
 

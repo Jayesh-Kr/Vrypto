@@ -16,4 +16,5 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@dfinity/agent', '@dfinity/auth-client', '@dfinity/candid', '@dfinity/identity'],
   },
+  envPrefix: 'REACT_APP_',
 })
