@@ -1,5 +1,5 @@
 type UserProfile = record {
-  principal : principal;
+  user_principal : principal;
   username : opt text;
   email : opt text;
   created_at : nat64;

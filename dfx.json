@@ -18,7 +18,8 @@
     },
     "frontend": {
       "type": "assets",
-      "source": ["frontend/dist"]
+      "source": ["frontend/dist"],
+      "build": "cd frontend && npm install && npm run build"
     }
   },
   "networks": {

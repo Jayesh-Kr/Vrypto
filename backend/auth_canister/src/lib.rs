@@ -12,7 +12,7 @@ type IdStore = StableBTreeMap<Principal, UserProfile, Memory>;
 
 #[derive(CandidType, Serialize, SerdeDeserialize, Clone)]
 pub struct UserProfile {
-    pub principal: Principal,
+    pub user_principal: Principal,
     pub username: Option<String>,
     pub email: Option<String>,
     pub created_at: u64,
@@ -60,7 +60,7 @@ fn register_user(username: Option<String>, email: Option<String>) -> Result<User
 
         let current_time = time();
         let user_profile = UserProfile {
-            principal,
+            user_principal: principal,
             username,
             email,
             created_at: current_time,
