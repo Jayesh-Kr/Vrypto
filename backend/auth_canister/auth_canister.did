@@ -1,0 +1,18 @@
+type UserProfile = record {
+  principal : principal;
+  username : opt text;
+  email : opt text;
+  created_at : nat64;
+  last_login : nat64;
+  is_active : bool;
+};
+
+service : {
+  register_user : (opt text, opt text) -> (variant { Ok : UserProfile; Err : text });
+  login : () -> (variant { Ok : UserProfile; Err : text });
+  get_user_profile : (principal) -> (opt UserProfile) query;
+  get_current_user : () -> (opt UserProfile) query;
+  update_user_profile : (opt text, opt text) -> (variant { Ok : UserProfile; Err : text });
+  is_user_registered : (principal) -> (bool) query;
+  get_total_users : () -> (nat64) query;
+}

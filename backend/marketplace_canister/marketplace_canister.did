@@ -1,0 +1,63 @@
+type Listing = record {
+  id : nat64;
+  asset_id : nat64;
+  seller : principal;
+  price : nat64;
+  created_at : nat64;
+  updated_at : nat64;
+  is_active : bool;
+  title : text;
+  description : text;
+  category : text;
+  tags : vec text;
+};
+
+type Transaction = record {
+  id : nat64;
+  asset_id : nat64;
+  listing_id : nat64;
+  seller : principal;
+  buyer : principal;
+  price : nat64;
+  transaction_time : nat64;
+  status : TransactionStatus;
+};
+
+type TransactionStatus = variant {
+  Pending;
+  Completed;
+  Failed;
+  Cancelled;
+};
+
+type ListingInput = record {
+  asset_id : nat64;
+  price : nat64;
+  title : text;
+  description : text;
+  category : text;
+  tags : vec text;
+};
+
+type MarketplaceStats = record {
+  total_listings : nat64;
+  active_listings : nat64;
+  total_transactions : nat64;
+  total_volume : nat64;
+};
+
+service : {
+  create_listing : (ListingInput) -> (variant { Ok : Listing; Err : text });
+  get_listing : (nat64) -> (opt Listing) query;
+  get_marketplace_listings : () -> (vec Listing) query;
+  get_user_listings : (principal) -> (vec Listing) query;
+  buy_asset : (nat64) -> (variant { Ok : Transaction; Err : text });
+  update_listing_price : (nat64, nat64) -> (variant { Ok : Listing; Err : text });
+  cancel_listing : (nat64) -> (variant { Ok : Listing; Err : text });
+  get_user_transactions : (principal) -> (vec Transaction) query;
+  get_user_purchases : (principal) -> (vec Transaction) query;
+  get_user_sales : (principal) -> (vec Transaction) query;
+  search_listings : (text) -> (vec Listing) query;
+  get_listings_by_category : (text) -> (vec Listing) query;
+  get_marketplace_stats : () -> (MarketplaceStats) query;
+}

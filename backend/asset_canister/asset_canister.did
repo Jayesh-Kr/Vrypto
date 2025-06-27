@@ -1,0 +1,44 @@
+type Asset = record {
+  id : nat64;
+  name : text;
+  description : text;
+  owner : principal;
+  file_hash : text;
+  file_url : text;
+  file_type : text;
+  file_size : nat64;
+  price : nat64;
+  is_for_sale : bool;
+  created_at : nat64;
+  updated_at : nat64;
+  category : text;
+  tags : vec text;
+  preview_image_url : opt text;
+};
+
+type AssetInput = record {
+  name : text;
+  description : text;
+  file_hash : text;
+  file_url : text;
+  file_type : text;
+  file_size : nat64;
+  price : nat64;
+  category : text;
+  tags : vec text;
+  preview_image_url : opt text;
+};
+
+service : {
+  upload_asset : (AssetInput) -> (variant { Ok : Asset; Err : text });
+  get_asset : (nat64) -> (opt Asset) query;
+  get_user_assets : (principal) -> (vec Asset) query;
+  get_all_assets : () -> (vec Asset) query;
+  get_assets_for_sale : () -> (vec Asset) query;
+  update_asset_price : (nat64, nat64) -> (variant { Ok : Asset; Err : text });
+  set_asset_for_sale : (nat64, bool) -> (variant { Ok : Asset; Err : text });
+  transfer_asset_ownership : (nat64, principal) -> (variant { Ok : Asset; Err : text });
+  search_assets : (text) -> (vec Asset) query;
+  get_assets_by_category : (text) -> (vec Asset) query;
+  get_total_assets : () -> (nat64) query;
+}
