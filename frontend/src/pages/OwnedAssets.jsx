@@ -77,7 +77,9 @@ const OwnedAssets = () => {
         tags: selectedAsset.tags,
       }
 
+      console.log("Listing items")
       const result = await canisterService.createListing(listingData)
+      console.log("result in ownedAsset = " , result);
 
       if ('Ok' in result) {
         // Also set the asset for sale
@@ -259,7 +261,7 @@ const OwnedAssets = () => {
           {assets.length > 0 ? (
             <div className="asset-grid">
               {assets.map((asset) => (
-                <div key={asset.id} className="relative">
+                <div key={asset.id} className="relative group">
                   <AssetCard asset={asset} showBuyButton={false} />
                   
                   {/* Asset Actions */}
