@@ -1,6 +1,6 @@
 use candid::{CandidType, Principal};
 use ic_cdk::api::time;
-use ic_cdk::{caller, query, update};
+use ic_cdk::{caller, query, update, call};
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap, Storable};
 use serde::{Serialize, Deserialize as SerdeDeserialize};
@@ -12,6 +12,7 @@ type ListingStore = StableBTreeMap<u64, Listing, Memory>;
 type TransactionStore = StableBTreeMap<u64, Transaction, Memory>;
 type ListingIdCounter = StableBTreeMap<u8, u64, Memory>;
 type TransactionIdCounter = StableBTreeMap<u8, u64, Memory>;
+type ConfigStore = StableBTreeMap<String, String, Memory>;
 
 #[derive(CandidType, Serialize, SerdeDeserialize, Clone)]
 pub struct Listing {
@@ -117,6 +118,12 @@ thread_local! {
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))),
         )
     );
+
+    static CONFIG: RefCell<ConfigStore> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))),
+        )
+    );
 }
 
 fn get_next_listing_id() -> u64 {
@@ -204,14 +211,18 @@ fn get_user_listings(seller: Principal) -> Vec<Listing> {
 }
 
 #[update]
-fn buy_asset(listing_id: u64) -> Result<Transaction, String> {
+async fn buy_asset(listing_id: u64) -> Result<Transaction, String> {
     let buyer = caller();
     
     if buyer == Principal::anonymous() {
         return Err("Anonymous users cannot buy assets".to_string());
     }
 
-    LISTINGS.with(|listings| {
+    // Get the asset canister principal
+    let asset_canister_principal = get_asset_canister_principal()?;
+
+    // Get the listing and validate it
+    let (listing, transaction_id) = LISTINGS.with(|listings| {
         let mut listings = listings.borrow_mut();
         
         match listings.get(&listing_id) {
@@ -224,34 +235,113 @@ fn buy_asset(listing_id: u64) -> Result<Transaction, String> {
                     return Err("Cannot buy your own asset".to_string());
                 }
 
-                // Deactivate the listing
+                // Deactivate the listing temporarily
                 listing.is_active = false;
                 listing.updated_at = time();
                 listings.insert(listing_id, listing.clone());
 
-                // Create transaction record
+                // Get next transaction ID
                 let transaction_id = get_next_transaction_id();
-                let transaction = Transaction {
-                    id: transaction_id,
-                    asset_id: listing.asset_id,
-                    listing_id,
-                    seller: listing.seller,
-                    buyer,
-                    price: listing.price,
-                    transaction_time: time(),
-                    status: TransactionStatus::Completed, // In a real implementation, this would be Pending until payment is confirmed
-                };
-
-                TRANSACTIONS.with(|transactions| {
-                    let mut transactions = transactions.borrow_mut();
-                    transactions.insert(transaction_id, transaction.clone());
-                });
-
-                Ok(transaction)
+                
+                Ok((listing, transaction_id))
             },
             None => Err("Listing not found".to_string()),
         }
-    })
+    })?;
+
+    // Create initial transaction record with Pending status
+    let mut transaction = Transaction {
+        id: transaction_id,
+        asset_id: listing.asset_id,
+        listing_id,
+        seller: listing.seller,
+        buyer,
+        price: listing.price,
+        transaction_time: time(),
+        status: TransactionStatus::Pending,
+    };
+
+    TRANSACTIONS.with(|transactions| {
+        let mut transactions = transactions.borrow_mut();
+        transactions.insert(transaction_id, transaction.clone());
+    });
+
+    // Define a struct to match the Asset return type from the asset canister
+    #[derive(CandidType, Serialize, SerdeDeserialize)]
+    struct AssetResult {
+        id: u64,
+        name: String,
+        description: String,
+        owner: Principal,
+        file_hash: String,
+        file_url: String,
+        file_type: String,
+        file_size: u64,
+        price: u64,
+        is_for_sale: bool,
+        created_at: u64,
+        updated_at: u64,
+        category: String,
+        tags: Vec<String>,
+        preview_image_url: Option<String>,
+    }
+
+    // Now attempt to transfer ownership via inter-canister call
+    let transfer_result: Result<(Result<AssetResult, String>,), _> = call(
+        asset_canister_principal,
+        "marketplace_transfer_asset", 
+        (listing.asset_id, listing.seller, buyer),
+    ).await;
+
+    match transfer_result {
+        Ok((Ok(_asset),)) => {
+            // Transfer successful, update transaction status
+            transaction.status = TransactionStatus::Completed;
+            TRANSACTIONS.with(|transactions| {
+                let mut transactions = transactions.borrow_mut();
+                transactions.insert(transaction_id, transaction.clone());
+            });
+            Ok(transaction)
+        },
+        Ok((Err(transfer_err),)) => {
+            // Transfer failed, mark transaction as failed and reactivate listing
+            transaction.status = TransactionStatus::Failed;
+            TRANSACTIONS.with(|transactions| {
+                let mut transactions = transactions.borrow_mut();
+                transactions.insert(transaction_id, transaction.clone());
+            });
+
+            // Reactivate the listing
+            LISTINGS.with(|listings| {
+                let mut listings = listings.borrow_mut();
+                if let Some(mut reactivated_listing) = listings.get(&listing_id) {
+                    reactivated_listing.is_active = true;
+                    listings.insert(listing_id, reactivated_listing);
+                }
+            });
+
+            Err(format!("Failed to transfer asset ownership: {}", transfer_err))
+        },
+        Err(call_err) => {
+            // Inter-canister call failed
+            transaction.status = TransactionStatus::Failed;
+            TRANSACTIONS.with(|transactions| {
+                let mut transactions = transactions.borrow_mut();
+                transactions.insert(transaction_id, transaction.clone());
+            });
+
+            // Reactivate the listing
+            LISTINGS.with(|listings| {
+                let mut listings = listings.borrow_mut();
+                if let Some(mut reactivated_listing) = listings.get(&listing_id) {
+                    reactivated_listing.is_active = true;
+                    listings.insert(listing_id, reactivated_listing);
+                }
+            });
+
+            Err(format!("Inter-canister call failed: {:?}", call_err))
+        }
+    }
 }
 
 #[update]
@@ -406,6 +496,42 @@ fn get_marketplace_stats() -> MarketplaceStats {
         total_transactions,
         total_volume,
     }
+}
+
+#[update]
+fn set_asset_canister_id(canister_id: String) -> Result<String, String> {
+    let principal = caller();
+    
+    // In a production environment, you might want to restrict this to admin users
+    // For now, we'll allow any authenticated user to set it
+    if principal == Principal::anonymous() {
+        return Err("Anonymous users cannot set canister ID".to_string());
+    }
+
+    CONFIG.with(|config| {
+        let mut config = config.borrow_mut();
+        config.insert("asset_canister_id".to_string(), canister_id.clone());
+    });
+
+    Ok(canister_id)
+}
+
+#[query]
+fn get_asset_canister_id() -> Option<String> {
+    CONFIG.with(|config| {
+        config.borrow().get(&"asset_canister_id".to_string())
+    })
+}
+
+fn get_asset_canister_principal() -> Result<Principal, String> {
+    CONFIG.with(|config| {
+        match config.borrow().get(&"asset_canister_id".to_string()) {
+            Some(canister_id) => {
+                Principal::from_text(canister_id).map_err(|_| "Invalid canister ID format".to_string())
+            },
+            None => Err("Asset canister ID not configured".to_string()),
+        }
+    })
 }
 
 // Export Candid interface

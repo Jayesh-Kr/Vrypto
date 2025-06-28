@@ -41,6 +41,7 @@ service : {
   update_asset_price : (nat64, nat64) -> (variant { Ok : Asset; Err : text });
   set_asset_for_sale : (nat64, bool) -> (variant { Ok : Asset; Err : text });
   transfer_asset_ownership : (nat64, principal) -> (variant { Ok : Asset; Err : text });
+  marketplace_transfer_asset : (nat64, principal, principal) -> (variant { Ok : Asset; Err : text });
   search_assets : (text) -> (vec Asset) query;
   get_assets_by_category : (text) -> (vec Asset) query;
   get_total_assets : () -> (nat64) query;

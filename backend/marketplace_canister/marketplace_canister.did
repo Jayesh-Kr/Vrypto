@@ -60,4 +60,6 @@ service : {
   search_listings : (text) -> (vec Listing) query;
   get_listings_by_category : (text) -> (vec Listing) query;
   get_marketplace_stats : () -> (MarketplaceStats) query;
+  set_asset_canister_id : (text) -> (variant { Ok : text; Err : text });
+  get_asset_canister_id : () -> (opt text) query;
 }

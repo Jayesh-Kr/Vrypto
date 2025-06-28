@@ -352,5 +352,39 @@ fn upload_asset_with_file(asset_input: AssetInput, file_data: Vec<u8>) -> Result
     Ok(asset)
 }
 
+#[update]
+fn marketplace_transfer_asset(asset_id: u64, seller: Principal, buyer: Principal) -> Result<Asset, String> {
+    let marketplace_principal = caller();
+    
+    // In a production environment, you might want to maintain a list of authorized marketplace canisters
+    // For now, we'll allow any canister to initiate transfers (you can add authorization later)
+    
+    ASSETS.with(|assets| {
+        let mut assets = assets.borrow_mut();
+        
+        match assets.get(&asset_id) {
+            Some(mut asset) => {
+                // Verify the seller is the current owner
+                if asset.owner != seller {
+                    return Err("Seller is not the current owner of the asset".to_string());
+                }
+                
+                // Verify the asset is for sale
+                if !asset.is_for_sale {
+                    return Err("Asset is not for sale".to_string());
+                }
+                
+                // Transfer ownership
+                asset.owner = buyer;
+                asset.is_for_sale = false; // Remove from sale after transfer
+                asset.updated_at = time();
+                assets.insert(asset_id, asset.clone());
+                Ok(asset)
+            },
+            None => Err("Asset not found".to_string()),
+        }
+    })
+}
+
 // Export Candid interface
 ic_cdk::export_candid!();
