@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
 import canisterService from '../services/canisterService'
 import UploadForm from '../components/UploadForm'
-import { generateFileHash, icpToE8s, formatICP, fileToBytes } from '../utils/helpers'
+import { generateFileHash, icpToE8s, formatICP, fileToBytes, testFileConversion, getVRFileMimeType } from '../utils/helpers'
 import { CheckCircle, AlertCircle } from 'lucide-react'
 
 const UploadAsset = () => {
@@ -28,9 +28,22 @@ const UploadAsset = () => {
       setUploadStep('uploading')
       const fileHash = await generateFileHash(formData.vrFile)
 
+      // ✅ NEW: Test file conversion integrity before upload
+      console.log('🧪 Testing file conversion integrity...')
+      const conversionTest = await testFileConversion(formData.vrFile)
+      if (!conversionTest.success) {
+        throw new Error(`File conversion failed: ${conversionTest.error || 'Unknown error'}`)
+      }
+      console.log('✅ File conversion test passed')
+
       // Step 2: Convert file to bytes for canister upload
       const fileBytes = await fileToBytes(formData.vrFile)
-      console.log("File converted to bytes i.e. filetoBytes");
+      console.log("File converted to bytes i.e. filetoBytes", {
+        originalSize: formData.vrFile.size,
+        bytesLength: fileBytes.length,
+        fileType: formData.vrFile.type,
+        fileName: formData.vrFile.name
+      });
       
       // Step 3: Handle preview image if present
       let previewImageUrl = null
@@ -65,25 +78,25 @@ const UploadAsset = () => {
       }
 
       // Step 4: Create asset record and upload file to canister
+      const correctMimeType = getVRFileMimeType(formData.vrFile.name, formData.vrFile.type)
       const assetInput = {
         name: formData.name,
         description: formData.description,
         file_hash: fileHash,
         file_url: `canister://${fileHash}`, // This will be the canister storage URL
-        file_type: formData.vrFile.name.split('.').pop().toLowerCase(),
+        file_type: correctMimeType, // ✅ FIXED: Use proper MIME type instead of just extension
         file_size: BigInt(formData.vrFile.size),
         price: BigInt(icpToE8s(formData.price)),
         category: formData.category,
         tags: formData.tags,
         preview_image_url: previewImageUrl ? [previewImageUrl] : [],
       }
-      console.log("Asset Input = " , assetInput)
-      console.log("File bytes " , fileBytes)
-      console.log("Before canister uploadAssesWith file")
-      console.log(await canisterService.uploadAssetWithFile(assetInput, fileBytes))
-      console.log("after consoling")
+      console.log("📦 Asset Input:", assetInput)
+      console.log("📊 File bytes length:", fileBytes.length)
+      console.log("🚀 Uploading to canister...")
+      
       const result = await canisterService.uploadAssetWithFile(assetInput, fileBytes)
-      console.log("Afte step 4 result")
+      console.log("📥 Upload result:", result)
 
       if ('Ok' in result) {
         setUploadedAsset(result.Ok)

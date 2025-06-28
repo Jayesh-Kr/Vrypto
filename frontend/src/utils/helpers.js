@@ -197,18 +197,37 @@ export const getStatusColor = (status) => {
 };
 
 // Convert file to byte array for canister upload
-export const fileToBytes = async (file) => {
+// ✅ FIXED: Ensure proper file-to-bytes conversion
+export const fileToBytes = (file) => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const arrayBuffer = reader.result;
-      const uint8Array = new Uint8Array(arrayBuffer);
-      resolve(Array.from(uint8Array));
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
-};
+    const reader = new FileReader()
+    
+    reader.onload = (event) => {
+      try {
+        const arrayBuffer = event.target.result
+        const uint8Array = new Uint8Array(arrayBuffer)
+        console.log('File converted to bytes:', {
+          originalSize: file.size,
+          bytesLength: uint8Array.length,
+          fileType: file.type,
+          fileName: file.name
+        })
+        resolve(uint8Array)
+      } catch (error) {
+        console.error('Error converting file to bytes:', error)
+        reject(error)
+      }
+    }
+    
+    reader.onerror = (error) => {
+      console.error('FileReader error:', error)
+      reject(error)
+    }
+    
+    // ✅ CRITICAL: Use readAsArrayBuffer for binary files
+    reader.readAsArrayBuffer(file)
+  })
+}
 
 // Convert bytes array back to blob/file
 export const bytesToBlob = (bytes, mimeType = 'application/octet-stream') => {
@@ -221,3 +240,109 @@ export const createDownloadURL = (bytes, mimeType = 'application/octet-stream') 
   const blob = bytesToBlob(bytes, mimeType);
   return URL.createObjectURL(blob);
 };
+
+// ✅ NEW: Verify file integrity by comparing hashes
+export const verifyFileIntegrity = async (originalFile, reconstructedBytes) => {
+  try {
+    // Generate hash of original file
+    const originalHash = await generateFileHash(originalFile)
+    
+    // Convert bytes back to blob for hashing
+    const blob = new Blob([new Uint8Array(reconstructedBytes)])
+    const reconstructedFile = new File([blob], originalFile.name, { type: originalFile.type })
+    const reconstructedHash = await generateFileHash(reconstructedFile)
+    
+    const isValid = originalHash === reconstructedHash
+    
+    console.log('🔍 File integrity check:', {
+      originalSize: originalFile.size,
+      reconstructedSize: reconstructedBytes.length,
+      originalHash: originalHash.substring(0, 16) + '...',
+      reconstructedHash: reconstructedHash.substring(0, 16) + '...',
+      isValid
+    })
+    
+    return {
+      isValid,
+      originalHash,
+      reconstructedHash,
+      originalSize: originalFile.size,
+      reconstructedSize: reconstructedBytes.length
+    }
+  } catch (error) {
+    console.error('❌ Error verifying file integrity:', error)
+    return { isValid: false, error: error.message }
+  }
+}
+
+// ✅ NEW: Get proper MIME type for VR files
+export const getVRFileMimeType = (fileName, fileType) => {
+  // Use provided file type if available
+  if (fileType && fileType !== 'application/octet-stream') {
+    return fileType
+  }
+  
+  // Determine from file extension
+  const extension = fileName.toLowerCase().slice(fileName.lastIndexOf('.'))
+  
+  switch (extension) {
+    case '.glb':
+      return 'model/gltf-binary'
+    case '.gltf':
+      return 'model/gltf+json'
+    case '.obj':
+      return 'text/plain'
+    case '.fbx':
+      return 'application/octet-stream'
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.png':
+      return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+// ✅ NEW: Test file conversion round-trip
+export const testFileConversion = async (file) => {
+  try {
+    console.log('🧪 Testing file conversion for:', file.name)
+    
+    // Convert to bytes
+    const bytes = await fileToBytes(file)
+    
+    // Convert back to blob
+    const mimeType = getVRFileMimeType(file.name, file.type)
+    const blob = bytesToBlob(bytes, mimeType)
+    
+    // Verify integrity
+    const integrity = await verifyFileIntegrity(file, bytes)
+    
+    console.log('🧪 Conversion test results:', {
+      originalFile: {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      },
+      convertedBlob: {
+        size: blob.size,
+        type: blob.type
+      },
+      bytesLength: bytes.length,
+      integrity
+    })
+    
+    return {
+      success: integrity.isValid,
+      blob,
+      bytes,
+      integrity
+    }
+  } catch (error) {
+    console.error('❌ File conversion test failed:', error)
+    return { success: false, error: error.message }
+  }
+}
