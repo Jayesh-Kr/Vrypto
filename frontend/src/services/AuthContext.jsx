@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { AuthClient } from '@dfinity/auth-client'
 import { Principal } from '@dfinity/principal'
+import { timeout } from '@dfinity/agent/lib/cjs/polling/strategy'
 
 const AuthContext = createContext()
 
@@ -99,6 +100,10 @@ export const AuthProvider = ({ children }) => {
         return
       }
 
+      // if(window.ic.plug.isConnected) {
+      //   await window.ic.plug.disconnect();
+      // }
+
       // Request connection
       const connected = await window.ic.plug.requestConnect({
         whitelist: [
@@ -106,14 +111,25 @@ export const AuthProvider = ({ children }) => {
           import.meta.env.REACT_APP_ASSET_CANISTER_ID,
           import.meta.env.REACT_APP_MARKETPLACE_CANISTER_ID,
         ],
-        host: import.meta.env.REACT_APP_NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : 'https://ic0.app',
+        host : 'http://localhost:8000',
+        // host: import.meta.env.REACT_APP_NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://ic0.app',
+        timeout : 50000
       })
 
       if (connected) {
+        
+        console.log('✅ Plug connected to local network')
+      console.log('🔍 Plug agent host:', window.ic.plug.agent.options.host)
+      console.log("Plug agent : ", window.ic.plug.agent)
         const principal = Principal.fromText(window.ic.plug.principalId)
         setPrincipal(principal)
         setIsAuthenticated(true)
-        setIdentity(window.ic.plug.agent)
+        // setIdentity(window.ic.plug.agent)
+        setIdentity({
+          agent : window.ic.plug.agent,
+          principal : principal,
+          isPlugWallet : true
+        })
       }
     } catch (error) {
       console.error('Plug login error:', error)

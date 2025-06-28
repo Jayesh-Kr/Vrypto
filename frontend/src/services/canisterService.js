@@ -167,40 +167,79 @@ class CanisterService {
       : 'https://ic0.app'
 
     // ✅ FIXED: Detect Plug Wallet identity
-    if (identity?.agent && identity?.principal) {
+    // if (identity?.agent && identity?.principal) {
       
-      // Extract the principal from Plug's identity structure
-      const principal = identity.principal.__principal__ || identity.principal
-      
-      // Create a new agent with the correct host
-      this.agent = new HttpAgent({ 
-        host: host,  // Force correct host
-        identity: null  // Plug handles auth differently
-      })
+    //   console.log("Creating plug wallet actor")
 
-      // Fetch root key for local development
+    //   this.authActor = await window.ic.plug.createActor({
+    //     canisterId: CANISTER_IDS.auth,
+    //     interfaceFactory: authIdlFactory,
+    //   })
+
+    //   this.assetActor = await window.ic.plug.createActor({
+    //     canisterId: CANISTER_IDS.asset,
+    //     interfaceFactory: assetIdlFactory,
+    //   })
+
+    //   this.marketplaceActor = await window.ic.plug.createActor({
+    //     canisterId: CANISTER_IDS.marketplace,
+    //     interfaceFactory: marketplaceIdlFactory,
+    //   })
+
+
+    //   console.log('✅ Plug Wallet actors created successfully')
+
+    //   // ✅ Test with Plug's authenticated actor
+    //   console.log('Testing asset actor with Plug authentication...')
+    //   const res = await this.assetActor.get_assets_for_sale()
+    //   console.log('Asset actor test result:', res)
+
+      
+    //   return
+    // }
+
+    if (identity?.agent && identity?.principal && identity?.isPlugWallet) {
+        console.log('🔌 Using Plug Wallet. Creating actors with standard method.')
+        
+        // Use the authenticated agent provided by Plug Wallet
+        this.agent = identity.agent
+
+        // CRITICAL: In local development, Plug's agent might need the root key fetched manually.
         if (import.meta.env.REACT_APP_NODE_ENV === 'development') {
-          await this.agent.fetchRootKey()
+          try {
+            console.log('Fetching root key for Plug agent...')
+            await this.agent.fetchRootKey()
+            console.log('✅ Root key fetched successfully for Plug agent.')
+          } catch (e) {
+            console.error('Could not fetch root key for Plug agent. This might be okay if the replica is already known.', e)
+          }
         }
 
-      // Create actors normally - Plug will handle the authentication
-      this.authActor = Actor.createActor(authIdlFactory, {
-        agent: this.agent,
-        canisterId: CANISTER_IDS.auth,
-      })
+        // Create actors using the standard method, not window.ic.plug.createActor
+        this.authActor = Actor.createActor(authIdlFactory, {
+          agent: this.agent,
+          canisterId: CANISTER_IDS.auth,
+        })
 
-      this.assetActor = Actor.createActor(assetIdlFactory, {
-        agent: this.agent,
-        canisterId: CANISTER_IDS.asset,
-      })
+        this.assetActor = Actor.createActor(assetIdlFactory, {
+          agent: this.agent,
+          canisterId: CANISTER_IDS.asset,
+        })
 
-      this.marketplaceActor = Actor.createActor(marketplaceIdlFactory, {
-        agent: this.agent,
-        canisterId: CANISTER_IDS.marketplace,
-      })
-      
-      return
-    }
+        this.marketplaceActor = Actor.createActor(marketplaceIdlFactory, {
+          agent: this.agent,
+          canisterId: CANISTER_IDS.marketplace,
+        })
+
+        console.log('✅ Plug Wallet actors created successfully using standard Actor.createActor')
+        
+        // Test the actor to confirm connection
+        // console.log('Testing asset actor with Plug authentication...')
+        // const res = await this.assetActor.get_assets_for_sale()
+        // console.log('Asset actor test result:', res)
+        
+        return
+      }
     
     this.agent = new HttpAgent({ 
       host,
@@ -279,45 +318,6 @@ class CanisterService {
   if (!this.assetActor) throw new Error('Asset actor not initialized')
   
   try {
-    // console.log('🔍 DEBUG: Original asset data:', assetData)
-    // console.log('🔍 DEBUG: File data type:', typeof fileData, 'Length:', fileData ? fileData.length : 0)
-    
-    // // ✅ FIXED: Create data structure that matches the deployed canister exactly
-    // const processedAssetData = {
-    //   name: String(assetData.name || ''),
-    //   description: String(assetData.description || ''),
-    //   file_hash: String(assetData.file_hash || ''),
-    //   file_url: String(assetData.file_url || ''),
-    //   file_type: String(assetData.file_type || ''),
-    //   file_size: BigInt(assetData.file_size || 0),
-    //   price: BigInt(assetData.price || 0),
-    //   category: String(assetData.category || ''),
-    //   tags: Array.isArray(assetData.tags) ? assetData.tags.map(tag => String(tag)) : [],
-    //   // ✅ CRITICAL FIX: Send null instead of empty array for None, or [value] for Some
-    //   preview_image_url: (assetData.preview_image_url && assetData.preview_image_url.length > 0) 
-    //     ? [String(assetData.preview_image_url[0])]  // Some(value)
-    //     : []  // None
-    // }
-    
-    // console.log('🔍 DEBUG: Processed asset data:', processedAssetData)
-    // console.log('🔍 DEBUG: preview_image_url value:', processedAssetData.preview_image_url)
-    
-    // // ✅ Convert fileData to proper format
-    // let processedFileData = [];
-    // if (fileData) {
-    //   if (fileData instanceof Uint8Array) {
-    //     processedFileData = Array.from(fileData);
-    //   } else if (Array.isArray(fileData)) {
-    //     processedFileData = fileData;
-    //   } else {
-    //     throw new Error('Invalid file data format');
-    //   }
-    // }
-    
-    // console.log('🔍 DEBUG: Processed file data length:', processedFileData.length)
-    // console.log('🔍 DEBUG: First few bytes:', processedFileData.slice(0, 10))
-    
-    // console.log('🚀 About to call upload_asset_with_file...')
     const result = await this.assetActor.upload_asset_with_file(assetData, fileData)
     console.log('✅ Upload successful:', result)
     return result
