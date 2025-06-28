@@ -10,6 +10,7 @@ use std::borrow::Cow;
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 type AssetStore = StableBTreeMap<u64, Asset, Memory>;
 type AssetIdCounter = StableBTreeMap<u8, u64, Memory>;
+type FileStore = StableBTreeMap<String, Vec<u8>, Memory>;
 
 #[derive(CandidType, Serialize, SerdeDeserialize, Clone)]
 pub struct Asset {
@@ -69,6 +70,12 @@ thread_local! {
     static ASSET_ID_COUNTER: RefCell<AssetIdCounter> = RefCell::new(
         StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
+        )
+    );
+
+    static FILES: RefCell<FileStore> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))),
         )
     );
 }
@@ -268,6 +275,81 @@ fn get_total_assets() -> u64 {
     ASSETS.with(|assets| {
         assets.borrow().len()
     })
+}
+
+// File upload and storage methods
+#[update]
+fn upload_file(file_hash: String, file_data: Vec<u8>) -> Result<String, String> {
+    let principal = caller();
+    
+    if principal == Principal::anonymous() {
+        return Err("Anonymous users cannot upload files".to_string());
+    }
+
+    // Check if file already exists
+    FILES.with(|files| {
+        let mut files = files.borrow_mut();
+        if files.contains_key(&file_hash) {
+            return Err("File already exists".to_string());
+        }
+        
+        files.insert(file_hash.clone(), file_data);
+        Ok(file_hash)
+    })
+}
+
+#[query]
+fn get_file(file_hash: String) -> Option<Vec<u8>> {
+    FILES.with(|files| {
+        files.borrow().get(&file_hash)
+    })
+}
+
+#[update]
+fn upload_asset_with_file(asset_input: AssetInput, file_data: Vec<u8>) -> Result<Asset, String> {
+    let principal = caller();
+    
+    if principal == Principal::anonymous() {
+        return Err("Anonymous users cannot upload assets".to_string());
+    }
+
+    // Store the file hash before moving asset_input
+    let file_hash = asset_input.file_hash.clone();
+
+    // First upload the file
+    FILES.with(|files| {
+        let mut files = files.borrow_mut();
+        files.insert(file_hash.clone(), file_data);
+    });
+
+    // Then create the asset record
+    let asset_id = get_next_asset_id();
+    let current_time = time();
+
+    let asset = Asset {
+        id: asset_id,
+        name: asset_input.name,
+        description: asset_input.description,
+        owner: principal,
+        file_hash: file_hash.clone(),
+        file_url: format!("canister://{}", file_hash), // Internal canister URL
+        file_type: asset_input.file_type,
+        file_size: asset_input.file_size,
+        price: asset_input.price,
+        is_for_sale: false,
+        created_at: current_time,
+        updated_at: current_time,
+        category: asset_input.category,
+        tags: asset_input.tags,
+        preview_image_url: asset_input.preview_image_url,
+    };
+
+    ASSETS.with(|assets| {
+        let mut assets = assets.borrow_mut();
+        assets.insert(asset_id, asset.clone());
+    });
+
+    Ok(asset)
 }
 
 // Export Candid interface

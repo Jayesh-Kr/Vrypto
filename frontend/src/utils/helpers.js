@@ -195,3 +195,29 @@ export const getStatusColor = (status) => {
       return 'bg-gray-100 text-gray-800';
   }
 };
+
+// Convert file to byte array for canister upload
+export const fileToBytes = async (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const arrayBuffer = reader.result;
+      const uint8Array = new Uint8Array(arrayBuffer);
+      resolve(Array.from(uint8Array));
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+// Convert bytes array back to blob/file
+export const bytesToBlob = (bytes, mimeType = 'application/octet-stream') => {
+  const uint8Array = new Uint8Array(bytes);
+  return new Blob([uint8Array], { type: mimeType });
+};
+
+// Create download URL from file bytes
+export const createDownloadURL = (bytes, mimeType = 'application/octet-stream') => {
+  const blob = bytesToBlob(bytes, mimeType);
+  return URL.createObjectURL(blob);
+};

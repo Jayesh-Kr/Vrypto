@@ -1,22 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useCanisterAssetFile } from '../hooks/useCanisterFile'
 import { Maximize, Minimize, RotateCcw, Move3D } from 'lucide-react'
 
-const VRViewer = ({ assetUrl, assetName }) => {
+const VRViewer = ({ assetUrl, assetName, asset }) => {
   const viewerRef = useRef(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [vrSupported, setVrSupported] = useState(false)
+  
+  // Use the hook to get the actual file URL for canister files
+  const { objectUrl: fileUrl, loading: fileLoading, error: fileError } = useCanisterAssetFile(asset || { file_url: assetUrl })
 
   useEffect(() => {
     // Check VR support
     checkVRSupport()
     
-    // Initialize A-Frame scene
-    if (assetUrl && viewerRef.current) {
+    // Initialize A-Frame scene when file URL is available
+    if (fileUrl && viewerRef.current && !fileLoading && !fileError) {
       initializeScene()
     }
-  }, [assetUrl])
+  }, [fileUrl, fileLoading, fileError])
 
   const checkVRSupport = async () => {
     if ('xr' in navigator) {
@@ -76,14 +80,14 @@ const VRViewer = ({ assetUrl, assetName }) => {
     model.setAttribute('id', 'main-model')
     
     // Determine file type and set appropriate component
-    const fileExtension = assetUrl.split('.').pop().toLowerCase()
+    const fileExtension = fileUrl.split('.').pop().toLowerCase()
     if (fileExtension === 'glb' || fileExtension === 'gltf') {
-      model.setAttribute('gltf-model', assetUrl)
+      model.setAttribute('gltf-model', fileUrl)
     } else if (fileExtension === 'obj') {
-      model.setAttribute('obj-model', `obj: ${assetUrl}`)
+      model.setAttribute('obj-model', `obj: ${fileUrl}`)
     } else {
       // Fallback to gltf-model for other formats
-      model.setAttribute('gltf-model', assetUrl)
+      model.setAttribute('gltf-model', fileUrl)
     }
 
     model.setAttribute('position', '0 0 0')
@@ -170,7 +174,32 @@ const VRViewer = ({ assetUrl, assetName }) => {
     }
   }
 
-  if (!assetUrl) {
+  // Show loading state while file is being fetched
+  if (fileLoading) {
+    return (
+      <div className="vr-viewer bg-gray-100 flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <div className="loading-spinner w-8 h-8 mx-auto mb-2"></div>
+          <p>Loading VR asset...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if file failed to load
+  if (fileError) {
+    return (
+      <div className="vr-viewer bg-gray-100 flex items-center justify-center">
+        <div className="text-center text-red-500">
+          <div className="text-4xl mb-2">⚠️</div>
+          <p>Failed to load VR asset</p>
+          <p className="text-sm">{fileError}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!fileUrl) {
     return (
       <div className="vr-viewer bg-gray-100 flex items-center justify-center">
         <div className="text-center text-gray-500">

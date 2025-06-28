@@ -52,8 +52,8 @@ export const AuthProvider = ({ children }) => {
       
       // Use Internet Identity for authentication
       await authClient.login({
-        identityProvider: import.meta.env.MODE === 'development' 
-          ? `http://localhost:8000?canisterId=${import.meta.env.REACT_APP_INTERNET_IDENTITY_CANISTER_ID}`
+        identityProvider: import.meta.env.REACT_APP_NODE_ENV === 'development' 
+          ? `http://127.0.0.1:8000?canisterId=${import.meta.env.REACT_APP_INTERNET_IDENTITY_CANISTER_ID}`
           : 'https://identity.ic0.app',
         onSuccess: () => {
           const identity = authClient.getIdentity()
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
           import.meta.env.REACT_APP_ASSET_CANISTER_ID,
           import.meta.env.REACT_APP_MARKETPLACE_CANISTER_ID,
         ],
-        host: import.meta.env.MODE === 'development' ? 'http://localhost:8000' : 'https://ic0.app',
+        host: import.meta.env.REACT_APP_NODE_ENV === 'development' ? 'http://127.0.0.1:8000' : 'https://ic0.app',
       })
 
       if (connected) {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
 import canisterService from '../services/canisterService'
 import UploadForm from '../components/UploadForm'
-import { generateFileHash, icpToE8s, formatICP } from '../utils/helpers'
+import { generateFileHash, icpToE8s, formatICP, fileToBytes } from '../utils/helpers'
 import { CheckCircle, AlertCircle } from 'lucide-react'
 
 const UploadAsset = () => {
@@ -20,31 +20,56 @@ const UploadAsset = () => {
       setUploadStep('uploading')
       setError('')
 
+      console.log(identity)
       await canisterService.initializeAgent(identity)
+      console.log("Initialized agent");
 
       // Step 1: Generate file hash
       setUploadStep('uploading')
       const fileHash = await generateFileHash(formData.vrFile)
 
-      // Step 2: Simulate file upload (in a real implementation, you would upload to IPFS or canister storage)
-      const fileUrl = URL.createObjectURL(formData.vrFile) // This is just for demo
+      // Step 2: Convert file to bytes for canister upload
+      const fileBytes = await fileToBytes(formData.vrFile)
+      console.log("File converted to bytes i.e. filetoBytes");
       
-      // In a real implementation, you would upload the file to:
-      // - IPFS and get the hash
-      // - A dedicated storage canister
-      // - Or store small files directly in the asset canister
-
+      // Step 3: Handle preview image if present
       let previewImageUrl = null
+      console.log("Formdata = ")
+      console.log(formData)
       if (formData.previewImage) {
-        previewImageUrl = URL.createObjectURL(formData.previewImage) // Demo only
+        console.log("Just below formdata.previewImage")
+        // For preview images, we can still use object URLs or upload them too
+        // For now, let's upload the preview image as well if it's small enough
+        try {
+          const previewHash = await generateFileHash(formData.previewImage)
+          console.log("PreviewHash done")
+          const previewBytes = await fileToBytes(formData.previewImage)
+          console.log("Preview Bytes Done");
+          // Upload preview image (only if less than 1MB)
+          if (previewBytes.length < 1024 * 1024) {
+            console.log("Reached the uploading section")
+            const previewResult = await canisterService.uploadFile(previewHash, previewBytes)
+            console.log("Just after previewResult")
+            if ('Ok' in previewResult) {
+              console.log("inside ok previewresult")
+              previewImageUrl = `canister://${previewHash}`
+            }
+          } else {
+            // Fallback to object URL for large preview images
+            previewImageUrl = URL.createObjectURL(formData.previewImage)
+          }
+        } catch (previewError) {
+          console.warn('Preview image upload failed, using object URL:', previewError)
+          previewImageUrl = URL.createObjectURL(formData.previewImage)
+        }
       }
 
-      // Step 3: Create asset record on canister
+      // Step 4: Create asset record and upload file to canister
       const assetInput = {
         name: formData.name,
         description: formData.description,
         file_hash: fileHash,
-        file_url: fileUrl, // In production, this would be the IPFS hash or canister URL
+        file_url: `canister://${fileHash}`, // This will be the canister storage URL
         file_type: formData.vrFile.name.split('.').pop().toLowerCase(),
         file_size: BigInt(formData.vrFile.size),
         price: BigInt(icpToE8s(formData.price)),
@@ -52,13 +77,18 @@ const UploadAsset = () => {
         tags: formData.tags,
         preview_image_url: previewImageUrl ? [previewImageUrl] : [],
       }
-
-      const result = await canisterService.uploadAsset(assetInput)
+      console.log("Asset Input = " , assetInput)
+      console.log("File bytes " , fileBytes)
+      console.log("Before canister uploadAssesWith file")
+      console.log(await canisterService.uploadAssetWithFile(assetInput, fileBytes))
+      console.log("after consoling")
+      const result = await canisterService.uploadAssetWithFile(assetInput, fileBytes)
+      console.log("Afte step 4 result")
 
       if ('Ok' in result) {
         setUploadedAsset(result.Ok)
         setUploadStep('success')
-        
+        console.log("Ok in result");
         // Auto-navigate to assets page after 3 seconds
         setTimeout(() => {
           navigate('/assets')
@@ -99,11 +129,15 @@ const UploadAsset = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-center space-x-3 text-sm text-gray-600">
               <div className="w-4 h-4 bg-primary-600 rounded-full animate-pulse"></div>
-              <span>Processing file</span>
+              <span>Generating file hash</span>
             </div>
             <div className="flex items-center justify-center space-x-3 text-sm text-gray-600">
-              <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
-              <span>Uploading to storage</span>
+              <div className="w-4 h-4 bg-primary-600 rounded-full animate-pulse"></div>
+              <span>Converting file to bytes</span>
+            </div>
+            <div className="flex items-center justify-center space-x-3 text-sm text-gray-600">
+              <div className="w-4 h-4 bg-primary-600 rounded-full animate-pulse"></div>
+              <span>Uploading to canister storage</span>
             </div>
             <div className="flex items-center justify-center space-x-3 text-sm text-gray-600">
               <div className="w-4 h-4 bg-gray-300 rounded-full"></div>

@@ -31,12 +31,15 @@ const Marketplace = () => {
   const loadMarketplaceData = async () => {
     try {
       setLoading(true)
+      console.log("Identity in marketplace = " , identity)
       await canisterService.initializeAgent(identity)
-      
+      console.log("Identity initialized in marketplace")
       const [listingsResult, assetsResult] = await Promise.allSettled([
         canisterService.getMarketplaceListings(),
         canisterService.getAssetsForSale()
       ])
+
+      console.log("Asset Result = ", assetsResult);
 
       if (listingsResult.status === 'fulfilled') {
         setListings(listingsResult.value || [])

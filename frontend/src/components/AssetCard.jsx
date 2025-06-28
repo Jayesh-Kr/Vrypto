@@ -1,9 +1,12 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { formatICP, formatDate, truncateText } from '../utils/helpers'
+import { useCanisterPreviewImage } from '../hooks/useCanisterFile'
 import { Eye, ShoppingCart, Tag, Calendar } from 'lucide-react'
 
 const AssetCard = ({ asset, showBuyButton = false, showViewButton = true, onBuy }) => {
+  const { objectUrl: previewImageUrl, loading: previewLoading } = useCanisterPreviewImage(asset)
+
   const handleBuy = (e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -16,9 +19,13 @@ const AssetCard = ({ asset, showBuyButton = false, showViewButton = true, onBuy 
     <div className="card hover:shadow-lg transition-shadow duration-300 group">
       {/* Asset Preview */}
       <div className="relative mb-4">
-        {asset.preview_image_url && asset.preview_image_url[0] ? (
+        {previewLoading ? (
+          <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+            <div className="loading-spinner w-8 h-8"></div>
+          </div>
+        ) : previewImageUrl ? (
           <img
-            src={asset.preview_image_url[0]}
+            src={previewImageUrl}
             alt={asset.name}
             className="w-full h-48 object-cover rounded-lg"
             onError={(e) => {
@@ -29,14 +36,16 @@ const AssetCard = ({ asset, showBuyButton = false, showViewButton = true, onBuy 
         ) : null}
         
         {/* Fallback for no preview image */}
-        <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-accent-100 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mb-2 shadow-sm">
-              <span className="text-2xl">🎯</span>
+        {!previewLoading && !previewImageUrl && (
+          <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-accent-100 rounded-lg flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mb-2 shadow-sm">
+                <span className="text-2xl">🎯</span>
+              </div>
+              <p className="text-sm text-gray-600 font-medium">{asset.file_type?.toUpperCase()} Model</p>
             </div>
-            <p className="text-sm text-gray-600 font-medium">{asset.file_type?.toUpperCase()} Model</p>
           </div>
-        </div>
+        )}
 
         {/* Price Badge */}
         {asset.is_for_sale && (

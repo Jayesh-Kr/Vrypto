@@ -202,6 +202,7 @@ const VRViewerPage = () => {
         <VRViewer 
           assetUrl={asset.file_url}
           assetName={asset.name}
+          asset={asset}
         />
       </div>
 

@@ -31,6 +31,9 @@ type AssetInput = record {
 
 service : {
   upload_asset : (AssetInput) -> (variant { Ok : Asset; Err : text });
+  upload_file : (text, vec nat8) -> (variant { Ok : text; Err : text });
+  get_file : (text) -> (opt vec nat8) query;
+  upload_asset_with_file : (AssetInput, vec nat8) -> (variant { Ok : Asset; Err : text });
   get_asset : (nat64) -> (opt Asset) query;
   get_user_assets : (principal) -> (vec Asset) query;
   get_all_assets : () -> (vec Asset) query;
