@@ -1,15 +1,78 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../services/AuthContext'
 import { formatPrincipal } from '../utils/helpers'
-import { ShoppingBag, Upload, Home, User, LogOut, Wallet } from 'lucide-react'
+import { ShoppingBag, Upload, Home, User, LogOut, Wallet, ChevronDown, AlertCircle } from 'lucide-react'
 
 const Navbar = () => {
-  const { isAuthenticated, principal, logout, loading } = useAuth()
+  const { isAuthenticated, principal, logout, loading, loginWithPlug, login } = useAuth()
   const location = useLocation()
+  const [showWalletDropdown, setShowWalletDropdown] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [connectionError, setConnectionError] = useState(null)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowWalletDropdown(false)
+        setConnectionError(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  // Close dropdown on successful authentication
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowWalletDropdown(false)
+      setConnectionError(null)
+      setIsConnecting(false)
+    }
+  }, [isAuthenticated])
 
   const isActivePath = (path) => {
     return location.pathname === path
+  }
+
+  const handleWalletConnect = () => {
+    setShowWalletDropdown(!showWalletDropdown)
+    setConnectionError(null)
+  }
+
+  const handlePlugLogin = async () => {
+    if (isConnecting) return
+    
+    try {
+      setIsConnecting(true)
+      setConnectionError(null)
+      await loginWithPlug()
+    } catch (error) {
+      console.error('Plug login failed:', error)
+      setConnectionError('Failed to connect with Plug Wallet. Please try again.')
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const handleIILogin = async () => {
+    if (isConnecting) return
+    
+    try {
+      setIsConnecting(true)
+      setConnectionError(null)
+      await login()
+    } catch (error) {
+      console.error('Internet Identity login failed:', error)
+      setConnectionError('Failed to connect with Internet Identity. Please try again.')
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -122,12 +185,82 @@ const Navbar = () => {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="btn-primary"
-              >
-                Connect Wallet
-              </Link>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={handleWalletConnect}
+                  disabled={isConnecting}
+                  className={`btn-primary flex items-center space-x-2 ${
+                    isConnecting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <Wallet size={18} />
+                  <span>{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
+                  <ChevronDown size={16} className={`transition-transform ${showWalletDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showWalletDropdown && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <h3 className="text-sm font-medium text-gray-900 mb-3">Choose your wallet</h3>
+                      
+                      {connectionError && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
+                          <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-red-700">{connectionError}</p>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2">
+                        {/* Plug Wallet */}
+                        <button
+                          onClick={handlePlugLogin}
+                          disabled={isConnecting}
+                          className={`w-full p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-3 ${
+                            isConnecting ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-xs">P</span>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="text-sm font-medium text-gray-900">Plug Wallet</div>
+                            <div className="text-xs text-gray-500">Browser extension wallet</div>
+                          </div>
+                          {isConnecting && (
+                            <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                        </button>
+
+                        {/* Internet Identity */}
+                        <button
+                          onClick={handleIILogin}
+                          disabled={isConnecting}
+                          className={`w-full p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-3 ${
+                            isConnecting ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-xs">II</span>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="text-sm font-medium text-gray-900">Internet Identity</div>
+                            <div className="text-xs text-gray-500">Secure identity service</div>
+                          </div>
+                          {isConnecting && (
+                            <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                        </button>
+                      </div>
+                      
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 text-center">
+                          New to IC? Choose Internet Identity for a secure, passwordless experience.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
