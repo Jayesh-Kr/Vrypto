@@ -19,7 +19,13 @@
     "frontend": {
       "type": "assets",
       "source": ["frontend/dist"],
-      "build": "cd frontend && npm install && npm run build"
+      "build": "cd frontend && npm run build"
+    },
+    "internet_identity": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "frontend": {}
     }
   },
   "networks": {
