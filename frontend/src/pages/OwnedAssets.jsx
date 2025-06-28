@@ -76,7 +76,7 @@ const OwnedAssets = () => {
         category: selectedAsset.category,
         tags: selectedAsset.tags,
       }
-
+      
       console.log("Listing items")
       const result = await canisterService.createListing(listingData)
       console.log("result in ownedAsset = " , result);

@@ -40,12 +40,15 @@ const Marketplace = () => {
       ])
 
       console.log("Asset Result = ", assetsResult);
+      console.log("Listings Result = ", listingsResult);
 
       if (listingsResult.status === 'fulfilled') {
+        console.log("Listings data:", listingsResult.value);
         setListings(listingsResult.value || [])
       }
 
       if (assetsResult.status === 'fulfilled') {
+        console.log("Assets data:", assetsResult.value);
         setAssets(assetsResult.value || [])
       }
     } catch (error) {
@@ -56,6 +59,7 @@ const Marketplace = () => {
   }
 
   const filterAndSortListings = () => {
+    console.log("Filtering listings, initial count:", listings.length);
     let filtered = [...listings]
 
     // Filter by search query
@@ -67,6 +71,7 @@ const Marketplace = () => {
         listing.category.toLowerCase().includes(query) ||
         listing.tags.some(tag => tag.toLowerCase().includes(query))
       )
+      console.log("After search filter:", filtered.length);
     }
 
     // Filter by category
@@ -74,6 +79,7 @@ const Marketplace = () => {
       filtered = filtered.filter(listing => 
         listing.category === selectedCategory
       )
+      console.log("After category filter:", filtered.length);
     }
 
     // Sort listings
@@ -94,6 +100,7 @@ const Marketplace = () => {
       }
     })
 
+    console.log("Final filtered listings:", filtered.length, filtered);
     setFilteredListings(filtered)
   }
 

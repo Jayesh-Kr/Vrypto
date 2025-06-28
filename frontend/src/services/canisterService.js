@@ -80,6 +80,7 @@ const assetIdlFactory = ({ IDL }) => {
     'update_asset_price': IDL.Func([IDL.Nat64, IDL.Nat64], [IDL.Variant({ 'Ok': Asset, 'Err': IDL.Text })], []),
     'set_asset_for_sale': IDL.Func([IDL.Nat64, IDL.Bool], [IDL.Variant({ 'Ok': Asset, 'Err': IDL.Text })], []),
     'transfer_asset_ownership': IDL.Func([IDL.Nat64, IDL.Principal], [IDL.Variant({ 'Ok': Asset, 'Err': IDL.Text })], []),
+    'marketplace_transfer_asset': IDL.Func([IDL.Nat64, IDL.Principal, IDL.Principal], [IDL.Variant({ 'Ok': Asset, 'Err': IDL.Text })], []),
     'search_assets': IDL.Func([IDL.Text], [IDL.Vec(Asset)], ['query']),
     'get_assets_by_category': IDL.Func([IDL.Text], [IDL.Vec(Asset)], ['query']),
     'get_total_assets': IDL.Func([], [IDL.Nat64], ['query']),
@@ -149,6 +150,8 @@ const marketplaceIdlFactory = ({ IDL }) => {
     'search_listings': IDL.Func([IDL.Text], [IDL.Vec(Listing)], ['query']),
     'get_listings_by_category': IDL.Func([IDL.Text], [IDL.Vec(Listing)], ['query']),
     'get_marketplace_stats': IDL.Func([], [MarketplaceStats], ['query']),
+    'set_asset_canister_id': IDL.Func([IDL.Text], [IDL.Variant({ 'Ok': IDL.Text, 'Err': IDL.Text })], []),
+    'get_asset_canister_id': IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   })
 }
 
@@ -233,6 +236,16 @@ class CanisterService {
 
         console.log('✅ Plug Wallet actors created successfully using standard Actor.createActor')
         
+        // Configure asset canister ID in marketplace for inter-canister calls
+        if (this.marketplaceActor && CANISTER_IDS.asset) {
+          try {
+            await this.setAssetCanisterId(CANISTER_IDS.asset)
+            console.log('✅ Asset canister ID configured in marketplace for Plug Wallet')
+          } catch (error) {
+            console.warn('⚠️ Failed to configure asset canister ID in marketplace for Plug Wallet:', error)
+          }
+        }
+        
         // Test the actor to confirm connection
         // console.log('Testing asset actor with Plug authentication...')
         // const res = await this.assetActor.get_assets_for_sale()
@@ -271,6 +284,16 @@ class CanisterService {
     })
 
     console.log('All actors initialized successfully')
+
+    // Configure asset canister ID in marketplace for inter-canister calls
+    if (this.marketplaceActor && CANISTER_IDS.asset) {
+      try {
+        await this.setAssetCanisterId(CANISTER_IDS.asset)
+        console.log('✅ Asset canister ID configured in marketplace')
+      } catch (error) {
+        console.warn('⚠️ Failed to configure asset canister ID in marketplace:', error)
+      }
+    }
   } catch (error) {
     console.error('Agent initialization failed:', error)
     throw error
@@ -403,6 +426,16 @@ class CanisterService {
   async searchListings(query) {
     if (!this.marketplaceActor) throw new Error('Marketplace actor not initialized')
     return await this.marketplaceActor.search_listings(query)
+  }
+
+  async setAssetCanisterId(canisterId) {
+    if (!this.marketplaceActor) throw new Error('Marketplace actor not initialized')
+    return await this.marketplaceActor.set_asset_canister_id(canisterId)
+  }
+
+  async getAssetCanisterId() {
+    if (!this.marketplaceActor) throw new Error('Marketplace actor not initialized')
+    return await this.marketplaceActor.get_asset_canister_id()
   }
 
   // Helper method to get file URL for display/download
