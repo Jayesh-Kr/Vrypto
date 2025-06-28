@@ -354,7 +354,7 @@ fn upload_asset_with_file(asset_input: AssetInput, file_data: Vec<u8>) -> Result
 
 #[update]
 fn marketplace_transfer_asset(asset_id: u64, seller: Principal, buyer: Principal) -> Result<Asset, String> {
-    let marketplace_principal = caller();
+    let _marketplace_principal = caller();
     
     // In a production environment, you might want to maintain a list of authorized marketplace canisters
     // For now, we'll allow any canister to initiate transfers (you can add authorization later)
