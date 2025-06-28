@@ -161,48 +161,82 @@ class CanisterService {
   }
 
   async initializeAgent(identity = null) {
-    console.log("Environement = " , import.meta.env.REACT_APP_NODE_ENV);
-    const host = import.meta.env.REACT_APP_NODE_ENV === 'development' 
-      ? 'http://127.0.0.1:8000' 
+  try {
+      const host = import.meta.env.REACT_APP_NODE_ENV === 'development' 
+      ? 'http://localhost:8000' 
       : 'https://ic0.app'
 
+    // ✅ FIXED: Detect Plug Wallet identity
+    if (identity?.agent && identity?.principal) {
+      
+      // Extract the principal from Plug's identity structure
+      const principal = identity.principal.__principal__ || identity.principal
+      
+      // Create a new agent with the correct host
+      this.agent = new HttpAgent({ 
+        host: host,  // Force correct host
+        identity: null  // Plug handles auth differently
+      })
+
+      // Fetch root key for local development
+        if (import.meta.env.REACT_APP_NODE_ENV === 'development') {
+          await this.agent.fetchRootKey()
+        }
+
+      // Create actors normally - Plug will handle the authentication
+      this.authActor = Actor.createActor(authIdlFactory, {
+        agent: this.agent,
+        canisterId: CANISTER_IDS.auth,
+      })
+
+      this.assetActor = Actor.createActor(assetIdlFactory, {
+        agent: this.agent,
+        canisterId: CANISTER_IDS.asset,
+      })
+
+      this.marketplaceActor = Actor.createActor(marketplaceIdlFactory, {
+        agent: this.agent,
+        canisterId: CANISTER_IDS.marketplace,
+      })
+      
+      return
+    }
+    
     this.agent = new HttpAgent({ 
       host,
       identity 
     })
 
-    // Fetch root key for local development
-    if (import.meta.env.REACT_APP_NODE_ENV === 'development') {
-      await this.agent.fetchRootKey()
-    }
+    // Always fetch root key for local development
+      if (import.meta.env.REACT_APP_NODE_ENV === 'development') {
+          await this.agent.fetchRootKey()
+      }
 
     this.authActor = Actor.createActor(authIdlFactory, {
       agent: this.agent,
       canisterId: CANISTER_IDS.auth,
     })
 
-     // ✅ Add verification that canister IDs exist
     if (!CANISTER_IDS.asset) {
       throw new Error('Asset canister ID not found in environment variables')
     }
 
-    
     this.assetActor = Actor.createActor(assetIdlFactory, {
       agent: this.agent,
       canisterId: CANISTER_IDS.asset,
     })
 
-    // ✅ Test the actor immediately
-    console.log('Testing asset actor...')
-    const res = await this.assetActor.get_assets_for_sale()
-    console.log(res)
-    console.log('Asset actor working correctly')
-
     this.marketplaceActor = Actor.createActor(marketplaceIdlFactory, {
       agent: this.agent,
       canisterId: CANISTER_IDS.marketplace,
     })
+
+    console.log('All actors initialized successfully')
+  } catch (error) {
+    console.error('Agent initialization failed:', error)
+    throw error
   }
+}
 
   // Auth methods
   async registerUser(username, email) {
